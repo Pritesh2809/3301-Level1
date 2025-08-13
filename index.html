@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Cicada 3301² – Dino Run (Encrypted Clue Reveal)</title>
+  <style>
+    :root{
+      --bg:#0a0a0f; --fg:#e5e7eb; --muted:#9ca3af; --accent:#52ffa8;
+      --card:#101118; --danger:#ef4444;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%; margin:0; font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial; background:radial-gradient(1200px 600px at 70% -10%, #182036 0%, #0a0a0f 60%); color:var(--fg); display:grid; place-items:center; overflow:hidden;}
+    .wrap{width:min(900px,94vw); animation: fadeIn .45s ease-out;}
+    header{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px}
+    h1{font-size:clamp(18px,2.5vw,24px); margin:0}
+    .hint{color:var(--muted); font-size:13px}
+    .panel{background:linear-gradient(180deg,#121422,#0e0f17); border:1px solid #1f2335; border-radius:18px; padding:14px; box-shadow:0 10px 40px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.02)}
+    canvas{display:block; width:100%; height:auto; background:linear-gradient(180deg,#0c0f1c 0%, #0b0d16 55%, #0a0a0f 100%); border-radius:14px; border:1px solid #1f2335}
+    .hud{display:flex; align-items:center; justify-content:space-between; margin-top:10px; font-variant-numeric:tabular-nums}
+    .btn-group{display:flex; gap:8px; align-items:center}
+    .btn{background:#14182a; border:1px solid #1f2335; color:var(--fg); padding:10px 14px; border-radius:12px; cursor:pointer; font-weight:600; transition:transform .08s, background .15s}
+    .btn:active{transform:scale(.98)}
+    .score{font-weight:700}
+    .footer{margin-top:12px; color:#9aa3c2; font-size:12px}
+
+    /* Overlay (glitch) */
+    .overlay{position:fixed; inset:0; display:none; place-items:center; backdrop-filter:blur(6px) saturate(120%); background:rgba(3,6,15,.6); z-index:50}
+    .glitchCard{width:min(880px,96vw); padding:28px 20px; text-align:center; border-radius:14px; background:linear-gradient(180deg,#06070b,#0b0e14); border:1px solid rgba(80,150,110,.06)}
+    .glitchText{font-family: ui-sans-serif, system-ui; font-weight:800; font-size: clamp(20px, 5.2vw, 44px); color:var(--accent); letter-spacing:.6px; text-transform:none; display:inline-block; position:relative;}
+    .glitchSmall{color:#bcd2c8; margin-top:10px; font-size:14px}
+    .glitchHint{color:#9fb3a6; margin-top:12px; font-size:13px}
+    .glitchButtons{display:flex; gap:10px; justify-content:center; margin-top:18px}
+    .muted{color:var(--muted); font-size:13px}
+
+    /* glitch "scan" visual */
+    .scan {
+      position:absolute; inset:0;
+      background: linear-gradient(90deg, rgba(255,255,255,.02) 0%, rgba(255,255,255,.06) 50%, rgba(255,255,255,.02) 100%);
+      mix-blend-mode:overlay; pointer-events:none; animation:scan 1.3s linear infinite;
+    }
+    @keyframes scan { from{ transform: translateX(-120%)} to{ transform: translateX(120%) } }
+
+    /* small shake on game over */
+    .shake { animation: shakeAnim .45s cubic-bezier(.36,.07,.19,.97) both; }
+    @keyframes shakeAnim {
+      10%,90%{ transform:translate3d(-1px,0,0) } 20%,80%{ transform:translate3d(2px,0,0) } 30%,50%,70%{ transform:translate3d(-3px,0,0) } 40%,60%{ transform:translate3d(3px,0,0) }
+    }
+
+    /* glitch character flicker (applied to container to add layered color offsets) */
+    .glitchText::before, .glitchText::after {
+      content: attr(data-text);
+      position:absolute; left:0; top:0; width:100%; height:100%;
+      clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+      opacity:.85;
+    }
+    .glitchText::before { color:#f4ffef; transform:translate(.8px,-.5px); mix-blend-mode:screen; filter:blur(.2px); opacity:.75; }
+    .glitchText::after  { color:#b8fff0; transform:translate(-.9px,.6px); mix-blend-mode:overlay; opacity:.6; }
+
+    @keyframes fadeIn { from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:translateY(0)} }
+  </style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>🦖 Dino Run – Cicada 3301² <span class="hint">(Clue decrypt puzzle)</span></h1>
+    <button id="resetBtn" class="btn" title="Restart (R)">Restart</button>
+  </header>
+
+  <div class="panel">
+    <canvas id="game" width="900" height="240" aria-label="Dino game canvas"></canvas>
+    <div class="hud">
+      <div class="btn-group">
+        <button id="jumpBtn" class="btn" title="Jump (Space/↑/Tap)">Jump</button>
+        <button id="duckBtn" class="btn" title="Duck (↓/S)">Duck</button>
+        <span class="hint muted">Space/↑ or tap to jump. ↓/S to duck.</span>
+      </div>
+      <div class="score">Score: <span id="score">0</span></div>
+    </div>
+  </div>
+
+  <div class="footer">Tip: The puzzle uses logical steps — no Base64. Decrypt the encrypted string when it appears at 3301.</div>
+</div>
+
+<!-- Center glitch overlay (pauses game) -->
+<div class="overlay" id="overlay" role="dialog" aria-modal="true">
+  <div class="glitchCard" id="glitchCard">
+    <div style="height:12px"></div>
+    <div class="glitchText" id="glitchMain" data-text=""></div>
+    <div class="scan" aria-hidden="true"></div>
+
+    <div class="glitchSmall" id="glitchSmall">Encrypted fragment (decode using the hint below)</div>
+    <div class="glitchHint" id="glitchHint">Hint: Work in reverse — untangle neighbors, then step numerals back three.</div>
+
+    <div class="glitchButtons" style="margin-top:14px;">
+      <button id="copyBtn" class="btn">Copy encrypted</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  /* =========================
+     Settings & the original URL
+     ========================= */
+  const ORIGINAL_URL = "onelevel33012.edckprcas.co.in";
+  const TARGET_SCORE = 3301;
+  const HARD_THRESHOLD = 2900;
+
+  /* === encryption used for puzzle (no base64) ===
+     1) Reverse the whole string,
+     2) Swap each adjacent pair of chars (0<->1, 2<->3, ...),
+     3) For digits: add +3 modulo 10.
+     This is reversible by doing the inverse steps (subtract 3 on digits, swap pairs, reverse).
+  */
+  function encryptPuzzle(str){
+    // 1) Reverse
+    let rev = str.split('').reverse();
+    // 2) swap each adjacent pair
+    for(let i=0;i+1<rev.length;i+=2){
+      [rev[i], rev[i+1]] = [rev[i+1], rev[i]];
+    }
+    // 3) digits +3 mod 10
+    for(let i=0;i<rev.length;i++){
+      if(/[0-9]/.test(rev[i])){
+        rev[i] = String((parseInt(rev[i],10) + 3) % 10);
+      }
+    }
+    return rev.join('');
+  }
+
+  // encrypted string (computed once)
+  const ENCRYPTED = encryptPuzzle(ORIGINAL_URL);
+
+  /* ============
+     Canvas game
+     ============ */
+  const canvas = document.getElementById('game'), ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  let last = performance.now();
+  let running = true;
+  let scoreFloat = 0, score = 0, clueShown = false;
+  let isHard = false;
+
+  let speed = 5.0;        // base easy speed
+  let gravity = 0.6;
+
+  const ground = { y: H - 24 };
+
+  const dino = {
+    x: 60,
+    y: ground.y - 48,
+    baseW: 44, baseH: 48,
+    w: 44, h: 48,
+    vy: 0, onGround: true, isCrouching: false,
+    animFrame: 0, animTimer: 0, squashTimer: 0,
+    jump(){
+      if(this.onGround && !this.isCrouching){
+        this.vy = -13.8; this.onGround = false;
+        // slight stretch
+        this.w = this.baseW - 4; this.h = this.baseH + 4;
+      }
+    },
+    crouch(state){
+      if(this.isCrouching === state) return;
+      this.isCrouching = state;
+      if(state){
+        this.w = 58; this.h = 28;
+        this.y = ground.y - this.h;
+      } else {
+        this.w = this.baseW; this.h = this.baseH;
+        this.y = ground.y - this.h;
+      }
+    }
+  };
+
+  const obstacles = [];
+  let spawnTimer = 0;
+
+  function spawnObstacle(){
+    const chanceFly = Math.random() > (isHard ? 0.45 : 0.75);
+    if(chanceFly && score > 200){
+      const h = 18 + Math.random()*16;
+      obstacles.push({ type:'flyer', x: W + 20, y: ground.y - h - (Math.random() > 0.5 ? 60 : 36), w: 42, h: 26, animFrame:0, animTimer:0 });
+    } else {
+      const w = 18 + Math.random()*16, h = 32 + Math.random()*28;
+      obstacles.push({ type:'cactus', x: W + 20, y: ground.y - h, w, h });
+    }
+  }
+
+  function reset(){
+    document.body.classList.remove('shake');
+    running = true; score = 0; scoreFloat = 0; clueShown = false; isHard = false;
+    speed = 5.0; spawnTimer = 0; obstacles.length = 0;
+    dino.y = ground.y - dino.baseH; dino.vy=0; dino.onGround=true; dino.crouch(false);
+    document.getElementById('overlay').style.display = 'none';
+    last = performance.now();
+    requestAnimationFrame(loop);
+  }
+
+  function collide(a,b){
+    return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+  }
+
+  function drawGround(){
+    ctx.fillStyle = '#111522';
+    ctx.fillRect(0, ground.y, W, 2);
+    for(let i=0;i<W;i+=8){
+      ctx.fillRect((i - (performance.now()/8)%8 + W)%W, ground.y+6, 3, 3);
+    }
+  }
+
+  function drawDino(){
+    const d = dino;
+    ctx.fillStyle = '#e5e7eb';
+    let bodyX = d.x, bodyY = d.y, bodyW = d.w, bodyH = d.h;
+    if(d.squashTimer > 0){
+      const s = Math.sin(d.squashTimer / 120 * Math.PI);
+      bodyW += s * 8; bodyH -= s * 8; bodyX -= s*4; bodyY += s*4;
+    }
+    if(d.isCrouching){
+      ctx.fillRect(bodyX, bodyY + 4, bodyW, bodyH - 4);
+      ctx.fillRect(bodyX + bodyW - 20, bodyY, 20, 12);
+      ctx.fillStyle = '#0a0a0f'; ctx.fillRect(bodyX + bodyW - 6, bodyY + 4, 4, 4);
+    } else if(!d.onGround){
+      ctx.fillRect(bodyX, bodyY, bodyW, bodyH);
+      ctx.fillRect(bodyX + bodyW - 16, bodyY - 8, 20, 20);
+      ctx.fillStyle = '#0a0a0f'; ctx.fillRect(bodyX + bodyW - 10, bodyY - 6, 4, 4);
+    } else {
+      const legOffset = d.animFrame === 0 ? 0 : -8;
+      ctx.fillRect(bodyX, bodyY, bodyW, bodyH - 8);
+      ctx.fillRect(bodyX + bodyW - 16, bodyY - 8, 20, 20);
+      ctx.fillRect(bodyX + 8, bodyY + bodyH - 8, 8, 8 + legOffset);
+      ctx.fillRect(bodyX + 26, bodyY + bodyH - 8, 8, 8 - legOffset);
+      ctx.fillStyle = '#0a0a0f'; ctx.fillRect(bodyX + bodyW - 10, bodyY - 6, 4, 4);
+    }
+  }
+
+  function drawObstacle(o){
+    ctx.fillStyle = o.type === 'cactus' ? '#a5b4fc' : '#fca5a5';
+    if(o.type === 'cactus'){
+      ctx.fillRect(o.x, o.y, o.w, o.h);
+      ctx.fillRect(o.x-6, o.y+6, 6, 14);
+      ctx.fillRect(o.x+o.w, o.y+10, 6, 14);
+    } else {
+      const wingY = o.y + Math.sin(o.animFrame * Math.PI) * 6;
+      ctx.fillRect(o.x + 8, o.y, o.w - 16, o.h);
+      ctx.fillRect(o.x, wingY, o.w, 8);
+    }
+  }
+
+  function update(delta){
+    // difficulty ramp when score crosses HARD_THRESHOLD
+    if(!isHard && score >= HARD_THRESHOLD){
+      isHard = true;
+      // visual/audio cue — small red flash & speed jump
+      speed += 1.7;
+      // shorten future spawn gaps
+      spawnTimer = Math.min(spawnTimer, 420);
+      // subtle notice (we just slightly tint background by adding glow for a moment)
+      document.body.style.transition = 'filter .5s'; document.body.style.filter = 'brightness(.93)';
+      setTimeout(()=>{ document.body.style.filter = ''; },700);
+    }
+
+    // gentle acceleration over time
+    speed += delta * 0.00045 * (isHard ? 1.8 : 1.0);
+
+    // Dino physics
+    dino.vy += gravity; dino.y += dino.vy;
+    if(dino.y + dino.h >= ground.y){
+      if(!dino.onGround){ dino.squashTimer = 120; }
+      dino.onGround = true; dino.y = ground.y - dino.h; dino.vy = 0;
+      if(!dino.isCrouching){ dino.w = dino.baseW; dino.h = dino.baseH; }
+    }
+
+    // running anim
+    if(dino.onGround && !dino.isCrouching){
+      dino.animTimer += delta;
+      if(dino.animTimer > (160 - Math.min(40, speed * 4))){ dino.animFrame = (dino.animFrame + 1) % 2; dino.animTimer = 0; }
+    }
+    if(dino.squashTimer > 0) dino.squashTimer -= delta;
+
+    // spawn obstacles
+    spawnTimer -= delta;
+    if(spawnTimer <= 0){
+      spawnObstacle();
+      const base = isHard ? (380 + Math.random()*300 - speed*20) : (620 + Math.random()*500 - speed*18);
+      spawnTimer = Math.max(260, base);
+    }
+
+    // obstacles movement & collision
+    for(let i=obstacles.length-1;i>=0;i--){
+      const o = obstacles[i];
+      o.x -= speed * (delta/16);
+      if(o.type === 'flyer'){ o.animTimer += delta; if(o.animTimer > 120){ o.animFrame++; o.animTimer = 0; } }
+      if(o.x + o.w < -40) obstacles.splice(i,1);
+      if(collide({x:dino.x+4,y:dino.y+2,w:dino.w-8,h:dino.h-4}, o)) gameOver();
+    }
+
+    // score
+    scoreFloat += delta * 0.15 * (isHard ? 1.06 : 1.0);
+    const newScore = Math.floor(scoreFloat);
+    if(newScore !== score){
+      score = newScore; document.getElementById('score').textContent = score;
+      if(score >= TARGET_SCORE && !clueShown){ revealEncrypted(); }
+    }
+  }
+
+  function gameOver(){
+    running = false; document.body.classList.add('shake');
+    ctx.save(); ctx.globalAlpha = 0.18; ctx.fillStyle = '#ef4444'; ctx.fillRect(0,0,W,H); ctx.restore();
+    ctx.fillStyle = '#fca5a5'; ctx.font = 'bold 20px ui-sans-serif, system-ui'; ctx.textAlign = 'center';
+    ctx.fillText('Game Over – Press R to Restart', W/2, H/2);
+  }
+
+  function render(){
+    ctx.clearRect(0,0,W,H);
+    // parallax clouds
+    ctx.globalAlpha = 0.35; ctx.fillStyle = '#6b7280';
+    for(let i=0;i<3;i++){
+      const x = ((performance.now()/(30 + i*20)) % (W+160)) - 80;
+      ctx.fillRect(W - x, 40 + i*18, 40 + i*10, 10 + i*3);
+    }
+    ctx.globalAlpha = 1;
+    drawGround();
+    drawDino();
+    obstacles.forEach(drawObstacle);
+
+    // watermark
+    ctx.globalAlpha = 0.07; ctx.font='900 120px ui-sans-serif, system-ui'; ctx.fillStyle='#52ffa8';
+    ctx.textAlign = 'left'; ctx.fillText('3301', W-360, 140); ctx.globalAlpha = 1;
+  }
+
+  function loop(t){
+    const delta = Math.min(50, t - last); last = t;
+    if(running){ update(delta); render(); requestAnimationFrame(loop); }
+  }
+
+  /* ======= Encrypted reveal with glitch animation ======= */
+  const overlay = document.getElementById('overlay');
+  const glitchMain = document.getElementById('glitchMain');
+  const glitchHint = document.getElementById('glitchHint');
+
+  function revealEncrypted(){
+    clueShown = true;
+    running = false;
+    // show overlay and animate glitching of ENCRYPTED
+    overlay.style.display = 'grid';
+    animateGlitch(ENCRYPTED, "Hint: Work in reverse — untangle neighbors, then step numerals back three.");
+  }
+
+  function animateGlitch(target, hint){
+    glitchHint.textContent = hint;
+    const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.-";
+    let duration = 1600;
+    let frameTime = 40;
+    let elapsed = 0;
+    // start with scrambled characters
+    let current = Array.from(target).map(()=> charset[Math.floor(Math.random()*charset.length)]);
+    glitchMain.dataset.text = target;
+    const timer = setInterval(()=>{
+      elapsed += frameTime;
+      for(let i=0;i<current.length;i++){
+        // probability of revealing char increases over time
+        const revealChance = (elapsed / duration) + (i / (current.length*1.7));
+        if(Math.random() < revealChance) current[i] = target[i];
+        else current[i] = charset[Math.floor(Math.random()*charset.length)];
+      }
+      glitchMain.textContent = current.join('');
+      if(elapsed >= duration){
+        clearInterval(timer);
+        glitchMain.textContent = target;
+        glitchMain.dataset.text = target;
+        // keep paused until user chooses
+      }
+    }, frameTime);
+  }
+
+  /* ===== Controls & UI ===== */
+  const keys = {};
+  function jumpAction(){ dino.jump(); }
+  document.getElementById('jumpBtn').addEventListener('pointerdown', jumpAction);
+  document.getElementById('duckBtn').addEventListener('pointerdown', ()=>dino.crouch(true));
+  document.getElementById('duckBtn').addEventListener('pointerup', ()=>dino.crouch(false));
+  document.getElementById('resetBtn').addEventListener('click', reset);
+
+  addEventListener('keydown', e=>{
+    if(keys[e.code]) return;
+    keys[e.code] = true;
+    if(e.code === 'Space' || e.code === 'ArrowUp'){ e.preventDefault(); jumpAction(); }
+    if(e.code === 'ArrowDown' || e.code.toLowerCase() === 'key_s'){ e.preventDefault(); dino.crouch(true); }
+    if(e.key === 'r' || e.key === 'R'){ reset(); }
+  });
+  addEventListener('keyup', e=>{
+    keys[e.code] = false;
+    if((e.code === 'Space' || e.code === 'ArrowUp') && dino.vy < -6){ dino.vy = -6; } // variable jump height
+    if(e.code === 'ArrowDown' || e.code.toLowerCase() === 'key_s'){ e.preventDefault(); dino.crouch(false); }
+  });
+  canvas.addEventListener('pointerdown', jumpAction);
+
+  /* overlay buttons */
+  document.getElementById('copyBtn').addEventListener('click', async ()=>{
+    try{ await navigator.clipboard.writeText(ENCRYPTED); alert('Encrypted text copied'); } catch(e){ alert('Copy failed'); }
+  });
+
+
+  let skipBuffer = "";
+  const skipCode = "skip3301"; // phrase to type to skip
+
+  window.addEventListener("keydown", (e) => {
+    // ignore if overlay is already shown
+    if (clueShown) return;
+
+    // only letters/numbers
+    if (/^[a-z0-9]$/i.test(e.key)) {
+      skipBuffer += e.key.toLowerCase();
+
+      // keep buffer length limited
+      if (skipBuffer.length > skipCode.length) {
+        skipBuffer = skipBuffer.slice(-skipCode.length);
+      }
+
+      // check match
+      if (skipBuffer === skipCode) {
+        revealEncrypted();
+        skipBuffer = ""; // reset after trigger
+      }
+    }
+  });
+
+
+  /* Start the loop immediately (no countdown) */
+  requestAnimationFrame(loop);
+
+  /* Expose encrypt function for debugging in console (optional) */
+  window.__puzzle = { original: ORIGINAL_URL, encrypted: ENCRYPTED, encrypt: encryptPuzzle };
+
+</script>
+</body>
+</html>

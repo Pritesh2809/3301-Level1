@@ -95,7 +95,6 @@
 <body>
 <div class="bg-particles" id="bgParticles"></div>
 
-<!-- Optional mobile message (kept hidden by default) -->
 <div id="mobile-warning" role="alert" aria-live="polite" style="display:none">
   <div>
     <h2>🚫 Best on Laptop/PC</h2>
@@ -130,7 +129,6 @@
   <div class="footer">✨ Tip: The puzzle uses logical steps — no Base64 directly. When you reach <b>3301</b>, you'll see an <i>encrypted</i> string. Decrypt using the hint. ✨</div>
 </div>
 
-<!-- Glitch overlay -->
 <div class="overlay" id="overlay" role="dialog" aria-modal="true">
   <div class="glitchCard" id="glitchCard">
     <div style="height:8px"></div>
@@ -150,7 +148,7 @@
      Constants & Difficulty
      ========================= */
   const TARGET_SCORE = 3301;
-  const HARD_THRESHOLD = 2900;
+  const HARD_THRESHOLD = 2000; // Original: 2900
 
   /* =========================
      Background Particles
@@ -174,16 +172,18 @@
      ========================= */
   (function(){
     // base64 of encrypted text, split & shuffled with index tags
-    // encrypted text corresponds to: pairwise-swap( digits+3 (mod 10) ) of the original
+    // The plaintext is vinvelinayagaa.edckprcas.co.in
+    // Encryption method: Pairwise character swap (e.g., 'ab' -> 'ba')
     const parts = [
-      'p6:cnBhYy', 'p2:ZlbGU2', 'p1:bm9sZX', 'p4:VkZWtj', 'p7:Lm4=', 'p3:NjQzLj', 'p5:5zb2Np'
+      'p7:Lm8uaW5u', 'p2:xldml5', 'p1:aXZudm',
+      'p5:ZHBrY3', 'p3:YWdhYW', 'p6:JzYS5j', 'p4:FhZS5j'
     ];
     const joined = parts
             .sort((a,b)=> parseInt(a.slice(1)) - parseInt(b.slice(1)))
             .map(s=> s.split(':')[1])
             .join('');
     const decode = (b64)=> (typeof atob==='function' ? atob(b64) : window.decodeURIComponent(window.escape(window.atob(b64))));
-    const ENCRYPTED = decode(joined); // example: 'nolevele6643.5dekcrpac.soci.n'
+    const ENCRYPTED = decode(joined); // example: 'ivnvleniyagaaae.cdpkcrsa.c.o.inn'
     window._getEncrypted = ()=> ENCRYPTED;
   })();
 
@@ -202,7 +202,7 @@
   let scoreFloat = 0, score = 0, clueShown = false;
   let isHard = false;
   let particles = [];
-  let speed = 4.2; const gravity = 0.56;
+  let speed = 5.5; const gravity = 0.6; // Original speed: 4.2, gravity: 0.56
 
   const ground = { y: H - 26 };
 
@@ -214,7 +214,7 @@
     animFrame: 0, animTimer: 0, squashTimer: 0,
     jump(){
       if(this.onGround && !this.isCrouching){
-        this.vy = -12.6; this.onGround = false;
+        this.vy = -12.4; this.onGround = false; // Original vy: -12.6
         this.w = this.baseW - 4; this.h = this.baseH + 4;
         // jump particles
         for(let i=0;i<8;i++){
@@ -238,7 +238,7 @@
 
   const obstacles=[]; let spawnTimer = 0;
   function spawnObstacle(){
-    const chanceFly = Math.random() > (isHard ? 0.55 : 0.9);
+    const chanceFly = Math.random() > (isHard ? 0.50 : 0.9); // Original hard chance: 0.55
     if(chanceFly && score>250){
       const h = 18 + Math.random()*16;
       obstacles.push({ type:'flyer', x: W+40, y: ground.y - h - (Math.random()>0.5?64:40), w:42, h:26, animFrame:0, animTimer:0, glowPhase:0 });
@@ -251,7 +251,7 @@
   function reset(){
     document.body.classList.remove('shake');
     running = true; score = 0; scoreFloat = 0; clueShown = false; isHard = false;
-    speed = 4.2; spawnTimer = 0; obstacles.length = 0; particles.length = 0;
+    speed = 5.5; spawnTimer = 0; obstacles.length = 0; particles.length = 0;
     dino.y = ground.y - dino.baseH; dino.vy = 0; dino.onGround = true; dino.crouch(false);
     document.getElementById('overlay').style.display='none';
     updateScoreBar();
@@ -325,7 +325,8 @@
       document.body.style.transition='filter .8s ease'; document.body.style.filter='brightness(.9) saturate(1.2) hue-rotate(10deg)';
       setTimeout(()=>{ document.body.style.filter=''; canvas.style.boxShadow='inset 0 0 50px rgba(255,0,0,.3), 0 0 30px rgba(82,255,168,.4)'; setTimeout(()=>{canvas.style.boxShadow='inset 0 0 50px rgba(0,0,0,.5)'},500); },800);
     }
-    speed += delta * 0.00028 * (isHard ? 1.6 : 0.9);
+    // Increased speed acceleration
+    speed += delta * 0.00028 * (isHard ? 1.9 : 1.1); // Original: (isHard ? 1.6 : 0.9)
 
     dino.vy += gravity; dino.y += dino.vy;
     if(dino.y + dino.h >= ground.y){
@@ -341,7 +342,8 @@
     }
     if(dino.squashTimer>0) dino.squashTimer-=delta;
 
-    spawnTimer -= delta; if(spawnTimer<=0){ spawnObstacle(); const base = isHard ? (560+Math.random()*420 - Math.min(speed*10,120)) : (920+Math.random()*520 - Math.min(speed*8,100)); spawnTimer = Math.max(380, base); }
+    // Reduced spawn timer (more frequent obstacles)
+    spawnTimer -= delta; if(spawnTimer<=0){ spawnObstacle(); const base = isHard ? (480+Math.random()*350 - Math.min(speed*12,150)) : (800+Math.random()*400 - Math.min(speed*10,120)); spawnTimer = Math.max(330, base); }
 
     for(let i=obstacles.length-1;i>=0;i--){ const o=obstacles[i]; o.x -= speed*(delta/16); if(o.type==='flyer'){ o.animTimer += delta; if(o.animTimer>120){ o.animFrame++; o.animTimer=0; } } if(o.x + o.w < -40) obstacles.splice(i,1); if(collide({x:dino.x+4,y:dino.y+2,w:dino.w-8,h:dino.h-4}, o)) gameOver(); }
 

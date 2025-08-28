@@ -126,7 +126,7 @@
     </div>
   </div>
 
-  <div class="footer">✨ Tip: The puzzle uses logical steps — no Base64 directly. When you reach <b>3301</b>, you'll see an <i>encrypted</i> string. Decrypt using the hint. ✨</div>
+  <div class="footer">✨ Tip: When you reach <b>3301</b>, you'll see a <i>Domain</i> string. Decrypt the subdomain ✨</div>
 </div>
 
 <div class="overlay" id="overlay" role="dialog" aria-modal="true">
@@ -135,9 +135,9 @@
     <div class="glitchText" id="glitchMain" data-text=""></div>
     <div class="scan" aria-hidden="true"></div>
     <div class="glitchSmall" id="glitchSmall">🔐 Encrypted fragment (copy & decode offline)</div>
-    <div class="glitchHint" id="glitchHint">Hint: Work <b>in reverse</b> — first untangle neighbors, then step numerals <b>back three</b>.</div>
+    <div class="glitchHint" id="glitchHint">Hint: Guess who is He?.If Vijay is Thalapathi! , Then? </div>
     <div class="glitchButtons" style="margin-top:16px">
-      <button id="copyBtn" class="btn">📋 Copy encrypted</button>
+      <button id="copyBtn" class="btn">📋 Copy </button>
       <button id="continueBtn" class="btn">🎮 Continue Game</button>
     </div>
   </div>
@@ -145,10 +145,12 @@
 
 <script>
   /* =========================
-     Constants & Difficulty
+     Constants & Difficulty (easier)
      ========================= */
   const TARGET_SCORE = 3301;
-  const HARD_THRESHOLD = 2000; // Original: 2900
+  const HARD_THRESHOLD = 2500; // easier than original
+  let speed = 4.2;            // slower base speed
+  const gravity = 0.55;       // gentler gravity
 
   /* =========================
      Background Particles
@@ -167,23 +169,29 @@
 
   /* =========================
      Obfuscated encrypted payload builder
-     - We only reveal an encrypted string at 3301
-     - The underlying plain URL is NOT present in the source
+     - Reveals: kamal.edckprcas.co.in (at score 3301)
+     - stored as base64 pieces to avoid plain text sitting plainly
      ========================= */
   (function(){
-    // base64 of encrypted text, split & shuffled with index tags
-    // The plaintext is vinvelinayagaa.edckprcas.co.in
-    // Encryption method: Pairwise character swap (e.g., 'ab' -> 'ba')
+    // base64 of "kamal.edckprcas.co.in" = "a2FtYWwuZWRja3ByY2FzLmNvLmlu"
+    // split into pieces with index tags and rejoin in order
     const parts = [
-      'p7:Lm8uaW5u', 'p2:xldml5', 'p1:aXZudm',
-      'p5:ZHBrY3', 'p3:YWdhYW', 'p6:JzYS5j', 'p4:FhZS5j'
+      'p2:YWwu',
+      'p4:a3ByY2FzLmNvLmlu',
+      'p1:a2Ft',
+      'p3:ZWRj'
     ];
     const joined = parts
             .sort((a,b)=> parseInt(a.slice(1)) - parseInt(b.slice(1)))
             .map(s=> s.split(':')[1])
             .join('');
-    const decode = (b64)=> (typeof atob==='function' ? atob(b64) : window.decodeURIComponent(window.escape(window.atob(b64))));
-    const ENCRYPTED = decode(joined); // example: 'ivnvleniyagaaae.cdpkcrsa.c.o.inn'
+    // decode base64 -> plaintext
+    const decode = (b64) => {
+      try { return (typeof atob === 'function') ? atob(b64) : decodeURIComponent(escape(window.atob(b64))); }
+      catch (e) { return ''; }
+    };
+    const ENCRYPTED = decode(joined);
+    // Expose as function (not directly as a global string)
     window._getEncrypted = ()=> ENCRYPTED;
   })();
 
@@ -202,8 +210,6 @@
   let scoreFloat = 0, score = 0, clueShown = false;
   let isHard = false;
   let particles = [];
-  let speed = 5.5; const gravity = 0.6; // Original speed: 4.2, gravity: 0.56
-
   const ground = { y: H - 26 };
 
   const dino = {
@@ -214,9 +220,8 @@
     animFrame: 0, animTimer: 0, squashTimer: 0,
     jump(){
       if(this.onGround && !this.isCrouching){
-        this.vy = -12.4; this.onGround = false; // Original vy: -12.6
+        this.vy = -14; this.onGround = false; // slightly easier jump
         this.w = this.baseW - 4; this.h = this.baseH + 4;
-        // jump particles
         for(let i=0;i<8;i++){
           particles.push({
             x: this.x + this.w/2 + (Math.random()-.5)*20,
@@ -238,20 +243,21 @@
 
   const obstacles=[]; let spawnTimer = 0;
   function spawnObstacle(){
-    const chanceFly = Math.random() > (isHard ? 0.50 : 0.9); // Original hard chance: 0.55
-    if(chanceFly && score>250){
-      const h = 18 + Math.random()*16;
-      obstacles.push({ type:'flyer', x: W+40, y: ground.y - h - (Math.random()>0.5?64:40), w:42, h:26, animFrame:0, animTimer:0, glowPhase:0 });
+    // fewer flyers and more forgiving obstacles for easier play
+    const chanceFly = Math.random() > (isHard ? 0.65 : 0.93);
+    if(chanceFly && score>600){
+      const h = 18 + Math.random()*10;
+      obstacles.push({ type:'flyer', x: W+40, y: ground.y - h - 64, w:42, h:26, animFrame:0, animTimer:0, glowPhase:0 });
     } else {
-      const w = 22 + Math.random()*18, h = 34 + Math.random()*28;
-      obstacles.push({ type:'cactus', x: W+40+Math.random()*40, y: ground.y - h, w, h, glowPhase:Math.random()*Math.PI*2 });
+      const w = 22 + Math.random()*10, h = 28 + Math.random()*18;
+      obstacles.push({ type:'cactus', x: W+60+Math.random()*30, y: ground.y - h, w, h, glowPhase:Math.random()*Math.PI*2 });
     }
   }
 
   function reset(){
     document.body.classList.remove('shake');
     running = true; score = 0; scoreFloat = 0; clueShown = false; isHard = false;
-    speed = 5.5; spawnTimer = 0; obstacles.length = 0; particles.length = 0;
+    speed = 4.2; spawnTimer = 0; obstacles.length = 0; particles.length = 0;
     dino.y = ground.y - dino.baseH; dino.vy = 0; dino.onGround = true; dino.crouch(false);
     document.getElementById('overlay').style.display='none';
     updateScoreBar();
@@ -285,10 +291,10 @@
       ctx.fillRect(bodyX+bodyW-20, bodyY, 20, 12);
       ctx.fillStyle='#0a0a0f'; ctx.fillRect(bodyX+bodyW-6, bodyY+4, 4, 4);
     } else if(!d.onGround){
-      ctx.save(); ctx.translate(bodyX+bodyW/2, bodyY+bodyH/2); ctx.rotate(Math.sin(performance.now()/200)*0.1); ctx.translate(-bodyW/2,-bodyH/2);
+      ctx.save(); ctx.translate(bodyX+bodyW/2, bodyY+bodyH/2); ctx.rotate(Math.sin(performance.now()/200)*0.08); ctx.translate(-bodyW/2,-bodyH/2);
       ctx.fillRect(0,0,bodyW,bodyH); ctx.fillRect(bodyW-16,-8,20,20); ctx.fillStyle='#0a0a0f'; ctx.fillRect(bodyW-10,-6,4,4); ctx.restore();
     } else {
-      const legOffset = d.animFrame===0?0:-8;
+      const legOffset = d.animFrame===0?0:-6;
       ctx.fillRect(bodyX, bodyY, bodyW, bodyH-8); ctx.fillRect(bodyX+bodyW-16, bodyY-8, 20, 20);
       ctx.fillRect(bodyX+8, bodyY+bodyH-8, 8, 8+legOffset); ctx.fillRect(bodyX+26, bodyY+bodyH-8, 8, 8-legOffset);
       ctx.fillStyle='#0a0a0f'; ctx.fillRect(bodyX+bodyW-10, bodyY-6, 4, 4);
@@ -321,12 +327,13 @@
 
   function update(delta){
     if(!isHard && score>=HARD_THRESHOLD){
-      isHard=true; speed+=1.2; spawnTimer=Math.min(spawnTimer,520);
-      document.body.style.transition='filter .8s ease'; document.body.style.filter='brightness(.9) saturate(1.2) hue-rotate(10deg)';
-      setTimeout(()=>{ document.body.style.filter=''; canvas.style.boxShadow='inset 0 0 50px rgba(255,0,0,.3), 0 0 30px rgba(82,255,168,.4)'; setTimeout(()=>{canvas.style.boxShadow='inset 0 0 50px rgba(0,0,0,.5)'},500); },800);
+      isHard=true; speed+=0.9; spawnTimer=Math.min(spawnTimer,520);
+      document.body.style.transition='filter .8s ease'; document.body.style.filter='brightness(.95) saturate(1.1) hue-rotate(6deg)';
+      setTimeout(()=>{ document.body.style.filter=''; canvas.style.boxShadow='inset 0 0 50px rgba(255,0,0,.18), 0 0 30px rgba(82,255,168,.3)'; setTimeout(()=>{canvas.style.boxShadow='inset 0 0 50px rgba(0,0,0,.5)'},500); },800);
     }
-    // Increased speed acceleration
-    speed += delta * 0.00028 * (isHard ? 1.9 : 1.1); // Original: (isHard ? 1.6 : 0.9)
+
+    // Very mild speed acceleration for easier play
+    speed += delta * 0.00018 * (isHard ? 1.2 : 0.6);
 
     dino.vy += gravity; dino.y += dino.vy;
     if(dino.y + dino.h >= ground.y){
@@ -338,22 +345,22 @@
     }
 
     if(dino.onGround && !dino.isCrouching){
-      dino.animTimer += delta; if(dino.animTimer > (180 - Math.min(40, speed*3))){ dino.animFrame=(dino.animFrame+1)%2; dino.animTimer=0; if(Math.random()>.7){ particles.push({x:dino.x+10, y:ground.y-5, vx:-2-Math.random()*2, vy:-1-Math.random(), life:15+Math.random()*10, maxLife:15+Math.random()*10, color:'#64748b'}); } }
+      dino.animTimer += delta; if(dino.animTimer > (200 - Math.min(50, speed*2))){ dino.animFrame=(dino.animFrame+1)%2; dino.animTimer=0; if(Math.random()>.7){ particles.push({x:dino.x+10, y:ground.y-5, vx:-2-Math.random()*2, vy:-1-Math.random(), life:15+Math.random()*10, maxLife:15+Math.random()*10, color:'#64748b'}); } }
     }
     if(dino.squashTimer>0) dino.squashTimer-=delta;
 
-    // Reduced spawn timer (more frequent obstacles)
-    spawnTimer -= delta; if(spawnTimer<=0){ spawnObstacle(); const base = isHard ? (480+Math.random()*350 - Math.min(speed*12,150)) : (800+Math.random()*400 - Math.min(speed*10,120)); spawnTimer = Math.max(330, base); }
+    // More forgiving spawn timing for easier gameplay
+    spawnTimer -= delta; if(spawnTimer<=0){ spawnObstacle(); const base = isHard ? (560+Math.random()*350 - Math.min(speed*8,120)) : (1000+Math.random()*500 - Math.min(speed*6,90)); spawnTimer = Math.max(420, base); }
 
-    for(let i=obstacles.length-1;i>=0;i--){ const o=obstacles[i]; o.x -= speed*(delta/16); if(o.type==='flyer'){ o.animTimer += delta; if(o.animTimer>120){ o.animFrame++; o.animTimer=0; } } if(o.x + o.w < -40) obstacles.splice(i,1); if(collide({x:dino.x+4,y:dino.y+2,w:dino.w-8,h:dino.h-4}, o)) gameOver(); }
+    for(let i=obstacles.length-1;i>=0;i--){ const o=obstacles[i]; o.x -= speed*(delta/16); if(o.type==='flyer'){ o.animTimer += delta; if(o.animTimer>160){ o.animFrame++; o.animTimer=0; } } if(o.x + o.w < -40) obstacles.splice(i,1); if(collide({x:dino.x+6,y:dino.y+4,w:dino.w-12,h:dino.h-6}, o)) gameOver(); }
 
     updateParticles(delta);
 
-    scoreFloat += delta * 0.13 * (isHard ? 1.04 : 1.0);
+    scoreFloat += delta * 0.11 * (isHard ? 1.02 : 1.0);
     const newScore = Math.floor(scoreFloat);
     if(newScore !== score){
       score = newScore; document.getElementById('score').textContent = score; updateScoreBar();
-      if(score % 500 === 0 && score>0){ for(let i=0;i<15;i++) particles.push({x:W/2+(Math.random()-.5)*100, y:H/3, vx:(Math.random()-.5)*8, vy:Math.random()*-8-2, life:40+Math.random()*20, maxLife:40+Math.random()*20, color:`hsl(${Math.random()*60+40},100%,70%)`}); }
+      if(score % 500 === 0 && score>0){ for(let i=0;i<12;i++) particles.push({x:W/2+(Math.random()-.5)*100, y:H/3, vx:(Math.random()-.5)*8, vy:Math.random()*-8-2, life:40+Math.random()*20, maxLife:40+Math.random()*20, color:`hsl(${Math.random()*60+40},100%,70%)`}); }
       if(score >= TARGET_SCORE && !clueShown){ revealEncrypted(); }
     }
   }

@@ -145,23 +145,22 @@
 
 <script>
 
-    /* ====== Disable Right Click, Inspect, F11/F12 ====== */
-    document.addEventListener('contextmenu', e => e.preventDefault()); // Disable right-click
+  
+    document.addEventListener('contextmenu', e => e.preventDefault());
 
     document.addEventListener('keydown', e => {
-        // Block F12, F11, Ctrl+Shift+I/J/C, Ctrl+U
+        
         if (
             e.key === "F12" || e.key === "F11" ||
             (e.ctrlKey && e.shiftKey && ["I", "i", "J", "j", "C", "c"].includes(e.key)) ||
             (e.ctrlKey && e.key.toLowerCase() === "u")
-        ) {
+        ) { 
             e.preventDefault();
             e.stopPropagation();
             return false;
         }
     });
-
-    // Optionally detect DevTools opening (heuristic)
+    
     (function detectDevTools() {
         let devtools = {open: false};
         const threshold = 160;
@@ -179,18 +178,12 @@
         }, 500);
     })();
 
-
-    /* =========================
-       Constants & Difficulty (easier)
-       ========================= */
+    
     const TARGET_SCORE = 3301;
-    const HARD_THRESHOLD = 2500; // easier than original
-    let speed = 4.2;             // slower base speed
-    const gravity = 0.55;        // gentler gravity
-
-    /* =========================
-       Background Particles
-       ========================= */
+    const HARD_THRESHOLD = 2500;
+    let speed = 4.2;             
+    const gravity = 0.55;       
+    
     function createBackgroundParticles(){
         const container = document.getElementById('bgParticles');
         for(let i=0;i<60;i++){
@@ -203,14 +196,9 @@
         }
     }
 
-    /* =========================
-       Obfuscated encrypted payload builder
-       - Reveals: edhu-level-2-broo.netlify.app (at score 3301)
-       - stored as base64 pieces to avoid plain text sitting plainly
-       ========================= */
+   
     (function(){
-        // New URL: edhu-level-2-broo.netlify.app
-        // Base64: ZWRodS1sZXZlbC0yLWJyb28ubmV0bGlmeS5hcHA=
+        
         const parts = [
             'p3:eS5hcHA=',
             'p1:ZWRodS1sZXZlbC0y',
@@ -220,25 +208,23 @@
             .sort((a,b)=> parseInt(a.slice(1)) - parseInt(b.slice(1)))
             .map(s=> s.split(':')[1])
             .join('');
-        // decode base64 -> plaintext
+     
         const decode = (b64) => {
             try { return (typeof atob === 'function') ? atob(b64) : decodeURIComponent(escape(window.atob(b64))); }
             catch (e) { return ''; }
         };
         const ENCRYPTED = decode(joined);
-        // Expose as function (not directly as a global string)
+ 
         window._getEncrypted = ()=> ENCRYPTED;
     })();
 
-    /* =========================
-       Canvas Game
-       ========================= */
+  
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
     const W = canvas.width, H = canvas.height;
 
     const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    // Show the mobile-warning *on mobile devices*
+  
     if(isMobile){
         document.getElementById('mobile-warning').style.display = 'grid';
     }
@@ -387,7 +373,7 @@
         }
         if(dino.squashTimer>0) dino.squashTimer-=delta;
 
-        // More forgiving spawn timing for easier gameplay
+      
         spawnTimer -= delta; if(spawnTimer<=0){ spawnObstacle(); const base = isHard ? (560+Math.random()*350 - Math.min(speed*8,120)) : (1000+Math.random()*500 - Math.min(speed*6,90)); spawnTimer = Math.max(420, base); }
 
         for(let i=obstacles.length-1;i>=0;i--){ const o=obstacles[i]; o.x -= speed*(delta/16); if(o.type==='flyer'){ o.animTimer += delta; if(o.animTimer>160){ o.animFrame++; o.animTimer=0; } } if(o.x + o.w < -40) obstacles.splice(i,1); if(collide({x:dino.x+6,y:dino.y+4,w:dino.w-12,h:dino.h-6}, o)) gameOver(); }
@@ -419,9 +405,6 @@
 
     function loop(t){ const delta = Math.min(50, t - last); last = t; if(running){ update(delta); render(); requestAnimationFrame(loop); } }
 
-    /* =========================
-       Encrypted Overlay Reveal
-       ========================= */
     const overlay = document.getElementById('overlay');
     const glitchMain = document.getElementById('glitchMain');
     const glitchHint = document.getElementById('glitchHint');
@@ -444,9 +427,7 @@
         }, frameTime);
     }
 
-    /* =========================
-       Controls & UI
-       ========================= */
+
     const keys = {};
     function jumpAction(){ dino.jump(); const btn=document.getElementById('jumpBtn'); btn.style.transform='translateY(0) scale(.95)'; setTimeout(()=>{btn.style.transform=''},100); }
     function duckAction(state){ dino.crouch(state); const btn=document.getElementById('duckBtn'); if(state){ btn.style.transform='translateY(2px) scale(.98)'; btn.style.background='linear-gradient(145deg,#374151,#1f2937)'; } else { btn.style.transform=''; btn.style.background=''; } }
@@ -473,7 +454,7 @@
             if(navigator.clipboard && navigator.clipboard.writeText){
                 await navigator.clipboard.writeText(enc);
             } else {
-                // fallback
+                
                 const ta = document.createElement('textarea');
                 ta.value = enc; ta.style.position='fixed'; ta.style.left='-9999px';
                 document.body.appendChild(ta); ta.select();
@@ -489,12 +470,10 @@
     });
 
     document.getElementById('continueBtn').addEventListener('click', ()=>{ overlay.style.animation='overlayFadeOut .3s ease-out forwards'; setTimeout(()=>{ overlay.style.display='none'; overlay.style.animation=''; running=true; requestAnimationFrame(loop); }, 340); });
-
-    // secret skip code: type "skip3301" to pop the clue
+    
     let skipBuffer = ""; const skipCode = "skip3301";
     window.addEventListener('keydown', (e)=>{ if(clueShown) return; if(/^[a-z0-9]$/i.test(e.key)){ skipBuffer += e.key.toLowerCase(); if(skipBuffer.length>skipCode.length) skipBuffer = skipBuffer.slice(-skipCode.length); if(skipBuffer===skipCode){ document.body.style.filter='hue-rotate(120deg) saturate(1.5)'; setTimeout(()=>{ document.body.style.filter=''; revealEncrypted(); }, 280); skipBuffer=''; } } });
-
-    // Add overlay fade out keyframes dynamically
+    
     const dyn = document.createElement('style'); dyn.textContent = `@keyframes overlayFadeOut{from{opacity:1; backdrop-filter:blur(12px)}to{opacity:0; backdrop-filter:blur(0)}}`; document.head.appendChild(dyn);
 
     // Initialize

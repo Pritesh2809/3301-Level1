@@ -134,8 +134,8 @@
         <div style="height:8px"></div>
         <div class="glitchText" id="glitchMain" data-text=""></div>
         <div class="scan" aria-hidden="true"></div>
-        <div class="glitchSmall" id="glitchSmall">🔐 Encrypted fragment</div>
-        <div class="glitchHint" id="glitchHint">Hint: Guess who is He?.If Vijay is Thalapathi! , Then? </div>
+        <div class="glitchSmall" id="glitchSmall">🔐Here the Level 2 Domain!!</div>
+        <div class="glitchHint" id="glitchHint" style="display:none;"></div>
         <div class="glitchButtons" style="margin-top:16px">
             <button id="copyBtn" class="btn">📋 Copy </button>
             <button id="continueBtn" class="btn">🎮 Continue Game</button>
@@ -144,13 +144,49 @@
 </div>
 
 <script>
+
+    /* ====== Disable Right Click, Inspect, F11/F12 ====== */
+    document.addEventListener('contextmenu', e => e.preventDefault()); // Disable right-click
+
+    document.addEventListener('keydown', e => {
+        // Block F12, F11, Ctrl+Shift+I/J/C, Ctrl+U
+        if (
+            e.key === "F12" || e.key === "F11" ||
+            (e.ctrlKey && e.shiftKey && ["I", "i", "J", "j", "C", "c"].includes(e.key)) ||
+            (e.ctrlKey && e.key.toLowerCase() === "u")
+        ) {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+        }
+    });
+
+    // Optionally detect DevTools opening (heuristic)
+    (function detectDevTools() {
+        let devtools = {open: false};
+        const threshold = 160;
+        setInterval(function() {
+            const widthThreshold = window.outerWidth - window.innerWidth > threshold;
+            const heightThreshold = window.outerHeight - window.innerHeight > threshold;
+            if (widthThreshold || heightThreshold) {
+                if(!devtools.open){
+                    alert("🚫 Developer tools are disabled for this puzzle.");
+                }
+                devtools.open = true;
+            } else {
+                devtools.open = false;
+            }
+        }, 500);
+    })();
+
+
     /* =========================
        Constants & Difficulty (easier)
        ========================= */
     const TARGET_SCORE = 3301;
     const HARD_THRESHOLD = 2500; // easier than original
-    let speed = 4.2;            // slower base speed
-    const gravity = 0.55;       // gentler gravity
+    let speed = 4.2;             // slower base speed
+    const gravity = 0.55;        // gentler gravity
 
     /* =========================
        Background Particles
@@ -169,16 +205,16 @@
 
     /* =========================
        Obfuscated encrypted payload builder
-       - Reveals: kamal.edckprcas.co.in (at score 3301)
+       - Reveals: edhu-level-2-broo.netlify.app (at score 3301)
        - stored as base64 pieces to avoid plain text sitting plainly
        ========================= */
     (function(){
-
+        // New URL: edhu-level-2-broo.netlify.app
+        // Base64: ZWRodS1sZXZlbC0yLWJyb28ubmV0bGlmeS5hcHA=
         const parts = [
-            'p2:YWwu',
-            'p4:a3ByY2FzLmNvLmlu',
-            'p1:a2Ft',
-            'p3:ZWRj'
+            'p3:eS5hcHA=',
+            'p1:ZWRodS1sZXZlbC0y',
+            'p2:LWJyb28ubmV0bGlm'
         ];
         const joined = parts
             .sort((a,b)=> parseInt(a.slice(1)) - parseInt(b.slice(1)))
@@ -394,7 +430,7 @@
         clueShown = true; running = false; canvas.style.transition='all .5s ease'; canvas.style.filter='blur(2px) brightness(.7)';
         setTimeout(()=>{ overlay.style.display='grid'; canvas.style.filter=''; }, 200);
         const encrypted = (typeof window._getEncrypted==='function') ? window._getEncrypted() : 'n/a';
-        animateGlitch(encrypted, 'Hint: Guess who is He?.If Vijay is Thalapathi! , Then Kamal is ?');
+        animateGlitch(encrypted, ''); // Hint removed
     }
 
     function animateGlitch(target, hint){
